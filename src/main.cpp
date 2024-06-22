@@ -88,21 +88,40 @@ void getEncoderSpeed(void *pvParameters) {
     else if (encoder == &encoder2) speed = &speed2;
     else if (encoder == &encoder3) speed = &speed3;
     else if (encoder == &encoder4) speed = &speed4;
-
-
     for (;;) {
+        uint64_t start = esp_timer_get_time();
         double count = encoder->getCount();
         encoder->clearCount();
         *speed = (double) count / TASK_FREQ_MS;
-
-        vTaskDelay(TASK_FREQ_MS / portTICK_PERIOD_MS);
+        if(encoder == &encoder1){
+            input1 = *speed;
+            myPID1.Compute();
+            controlMotor(output1, PWM_CHANNEL_1_1, PWM_CHANNEL_1_2);
+        }
+        else if(encoder == &encoder2){
+            input2 = *speed;
+            myPID2.Compute();
+            controlMotor(output2, PWM_CHANNEL_2_1, PWM_CHANNEL_2_2);
+        }
+        else if(encoder == &encoder3){
+            input3 = *speed;
+            myPID3.Compute();
+            controlMotor(output3, PWM_CHANNEL_3_1, PWM_CHANNEL_3_2);
+        }
+        else if(encoder == &encoder4){
+            input4 = *speed;
+            myPID4.Compute();
+            controlMotor(output4, PWM_CHANNEL_4_1, PWM_CHANNEL_4_2);
+        }
+        
+        vTaskDelay(1 / portTICK_PERIOD_MS);
     }
 }
 
 void logEncoderSpeed(void *pvParameters) {
     Serial.print("Speed1 Speed2 Speed3 Speed4\n");
     for (;;) {
-      Serial.printf("%.2f %.2f %.2f %.2f\n", speed1, speed2, speed3, speed4);
+      Serial.printf("%.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f\n", speed1, speed2, speed3, speed4, output1, output2, output3, output4);
       vTaskDelay(TASK_FREQ_MS / portTICK_PERIOD_MS);
     }
 }
@@ -160,7 +179,7 @@ void setup() {
     myPID4.SetOutputLimits(-200, 200);
     setpoint4 = 0;
 
-    Serial.begin(115200);
+    Serial.begin(921600);
     
     delay(2000);
     //clear all counts
@@ -187,28 +206,5 @@ void loop() {
     ki1 = Serial.parseFloat();
     kd1 = Serial.parseFloat();
     myPID1.SetTunings(kp1, ki1, kd1);
-    Serial.print("kp1: ");
-    Serial.print(kp1);
-    Serial.print(" ki1: ");
-    Serial.print(ki1);
-    Serial.print(" kd1: ");
-    Serial.println(kd1);
   }
-
-  // read speed into input
-  input1 = speed1;
-  myPID1.Compute();
-  controlMotor(output1, PWM_CHANNEL_1_1, PWM_CHANNEL_1_2);
-
-  input2 = speed2;
-  myPID2.Compute();
-  controlMotor(output2, PWM_CHANNEL_2_1, PWM_CHANNEL_2_2);
-
-  input3 = speed3;
-  myPID3.Compute();
-  controlMotor(output3, PWM_CHANNEL_3_1, PWM_CHANNEL_3_2);
-
-  input4 = speed4;
-  myPID4.Compute();
-  controlMotor(output4, PWM_CHANNEL_4_1, PWM_CHANNEL_4_2);
 }
