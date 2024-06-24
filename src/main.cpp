@@ -39,9 +39,9 @@
 
 // variables
 
-// speed of 200 is already max.
+// speed of 255 is already max.
 
-double input1, output1, setpoint1 = 0, kp1 = 0, ki1 = 0, kd1 = 0;  // MOTOR 1
+double input1, output1, setpoint1 = 0, kp1 = 16, ki1 = 1, kd1 = 0;  // MOTOR 1
 PID myPID1(&input1, &output1, &setpoint1, kp1, ki1, kd1, DIRECT);  // PID_v1
 
 double input2, output2, setpoint2 = 0, kp2 = 0, ki2 = 0, kd2 = 0;  // MOTOR 2
@@ -91,6 +91,7 @@ void getEncoderSpeed(void *pvParameters) {
     for (;;) {
         uint64_t start = esp_timer_get_time();
         double count = encoder->getCount();
+        if(encoder == &encoder2) count = count*1.6;
         encoder->clearCount();
         *speed = (double) count / TASK_FREQ_MS;
         if(encoder == &encoder1){
@@ -122,7 +123,7 @@ void logEncoderSpeed(void *pvParameters) {
     Serial.print("Speed1 Speed2 Speed3 Speed4\n");
     for (;;) {
       Serial.printf("%.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f\n", speed1, speed2, speed3, speed4, output1, output2, output3, output4);
-      vTaskDelay(TASK_FREQ_MS / portTICK_PERIOD_MS);
+      vTaskDelay(100 / portTICK_PERIOD_MS);
     }
 }
 
@@ -164,24 +165,28 @@ void setup() {
     ledcWrite(PWM_CHANNEL_4_2, 0);
 
     myPID1.SetMode(AUTOMATIC);  // the PID is turned on
-    myPID1.SetOutputLimits(-200, 200);
+    myPID1.SetOutputLimits(-255, 255);
+    myPID1.SetSampleTime(TASK_FREQ_MS);
     setpoint1 = 0;
 
     myPID2.SetMode(AUTOMATIC);  // the PID is turned on
-    myPID2.SetOutputLimits(-200, 200);
+    myPID2.SetOutputLimits(-255, 255);
+    myPID1.SetSampleTime(TASK_FREQ_MS);
     setpoint2 = 0;
 
     myPID3.SetMode(AUTOMATIC);  // the PID is turned on
-    myPID3.SetOutputLimits(-200, 200);
+    myPID3.SetOutputLimits(-255, 255);
+    myPID1.SetSampleTime(TASK_FREQ_MS);
     setpoint3 = 0;
 
     myPID4.SetMode(AUTOMATIC);  // the PID is turned on
-    myPID4.SetOutputLimits(-200, 200);
+    myPID4.SetOutputLimits(-255, 255);
+    myPID1.SetSampleTime(TASK_FREQ_MS);
     setpoint4 = 0;
 
     Serial.begin(921600);
     
-    delay(2000);
+    delay(2550);
     //clear all counts
     encoder1.clearCount();
     encoder2.clearCount();
@@ -202,9 +207,17 @@ void setup() {
 void loop() {
   // read kp, ki, kd from serial for motor 1
   if (Serial.available() > 0) {
-    kp1 = Serial.parseFloat();
-    ki1 = Serial.parseFloat();
-    kd1 = Serial.parseFloat();
-    myPID1.SetTunings(kp1, ki1, kd1);
+    // setpoint1 = Serial.parseFloat();
+    kp4 = Serial.parseFloat();
+    ki4 = Serial.parseFloat();
+    kd4 = Serial.parseFloat();
+    myPID4.SetTunings(kp4, ki4, kd4);
   }
+
+  // switch setpoint1 0 and 30 every 5 seconds
+    if (millis() % 10000 < 5000) {
+        setpoint4 = 0;
+    } else {
+        setpoint4 = 30;
+    }
 }
