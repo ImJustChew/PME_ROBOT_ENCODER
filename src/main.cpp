@@ -38,21 +38,32 @@
 #define PWM_CHANNEL_4_2 7
 
 // variables
+double control_period = 0.01;
+
 
 // speed of 255 is already max.
 
-double input1, output1, setpoint1 = 0, kp1 = 16, ki1 = 1, kd1 = 0;  // MOTOR 1
-PID myPID1(&input1, &output1, &setpoint1, kp1, ki1, kd1, DIRECT);  // PID_v1
+volatile double input1, output1, setpoint1 = 0, kp1 = 0, ki1 = 0, kd1 = 0; 
+volatile double last_integral1 = 0, rps_before1 = 0.0;  // MOTOR 1
+int encoder_resolution1 = 512;
+double speed_reduction_ratio1 = 1;
 
-double input2, output2, setpoint2 = 0, kp2 = 0, ki2 = 0, kd2 = 0;  // MOTOR 2
-PID myPID2(&input2, &output2, &setpoint2, kp2, ki2, kd2, DIRECT);  // PID_v1
+volatile double input2, output2, setpoint2 = 0, kp2 = 0, ki2 = 0, kd2 = 0;
+volatile double last_integral2 = 0, rps_before2 = 0.0;  // MOTOR 2
+int encoder_resolution2 = 512;
+double speed_reduction_ratio2 = 1;
 
-double input3, output3, setpoint3 = 0, kp3 = 0, ki3 = 0, kd3 = 0;  // MOTOR 3
-PID myPID3(&input3, &output3, &setpoint3, kp3, ki3, kd3, DIRECT);  // PID_v1
+volatile double input3, output3, setpoint3 = 0, kp3 = 0, ki3 = 0, kd3 = 0; 
+volatile double last_integral3 = 0, rps_before3 = 0.0;  // MOTOR 3
+int encoder_resolution3 = 512;
+double speed_reduction_ratio3 = 1;
 
-double input4, output4, setpoint4 = 0, kp4 = 0, ki4 = 0, kd4 = 0;  // MOTOR 4
-PID myPID4(&input4, &output4, &setpoint4, kp4, ki4, kd4, DIRECT);  // PID_v1
+volatile double input4, output4, setpoint4 = 0, kp4 = 0, ki4 = 0, kd4 = 0;
+volatile double last_integral4 = 0, rps_before4 = 0.0;  // MOTOR 4
+int encoder_resolution4 = 512;
+double speed_reduction_ratio4 = 1;
 
+int pwm_resolution = 255;
 
 // Encoder objects
 ESP32Encoder encoder1;
@@ -78,7 +89,7 @@ void controlMotor(int output, int pwmChannel1, int pwmChannel2) {
     }
 }
 
-const int TASK_FREQ_MS = 1;
+const int TASK_FREQ_MS = control_period * 1000;
 
 void getEncoderSpeed(void *pvParameters) {
     ESP32Encoder* encoder = (ESP32Encoder*)pvParameters;
@@ -91,28 +102,67 @@ void getEncoderSpeed(void *pvParameters) {
     for (;;) {
         uint64_t start = esp_timer_get_time();
         double count = encoder->getCount();
-        if(encoder == &encoder2) count = count*1.6;
         encoder->clearCount();
         *speed = (double) count / TASK_FREQ_MS;
         if(encoder == &encoder1){
             input1 = *speed;
-            myPID1.Compute();
-            controlMotor(output1, PWM_CHANNEL_1_1, PWM_CHANNEL_1_2);
+            double rps = count / (2 * encoder_resolution1 * speed_reduction_ratio1 * control_period);
+
+            double err = setpoint1 - rps;
+            double propotional = kp1 * err; 
+            last_integral1 += ki1 * err * control_period;
+            double differential =  kd1 * (rps-rps_before1) / control_period;
+            double pid_duty = propotional + last_integral1 + differential;
+            pid_duty = (pid_duty > 1) ? 1.0 : pid_duty;
+            pid_duty = (pid_duty < -1) ? -1.0 : pid_duty;
+            rps_before1 = rps;
+            controlMotor(pid_duty*pwm_resolution, PWM_CHANNEL_1_1, PWM_CHANNEL_1_2);
+            output1 = pid_duty*pwm_resolution;
         }
         else if(encoder == &encoder2){
             input2 = *speed;
-            myPID2.Compute();
-            controlMotor(output2, PWM_CHANNEL_2_1, PWM_CHANNEL_2_2);
+            double rps = count / (2 * encoder_resolution2 * speed_reduction_ratio2 * control_period);
+
+            double err = setpoint2 - rps;
+            double propotional = kp2 * err;
+            last_integral2 += ki2 * err * control_period;
+            double differential =  kd2 * (rps-rps_before2) / control_period;
+            double pid_duty = propotional + last_integral2 + differential;
+            pid_duty = (pid_duty > 1) ? 1.0 : pid_duty;
+            pid_duty = (pid_duty < -1) ? -1.0 : pid_duty;
+            rps_before2 = rps;
+            controlMotor(pid_duty*pwm_resolution, PWM_CHANNEL_2_1, PWM_CHANNEL_2_2);
+            output2 = pid_duty*pwm_resolution;
         }
         else if(encoder == &encoder3){
             input3 = *speed;
-            myPID3.Compute();
-            controlMotor(output3, PWM_CHANNEL_3_1, PWM_CHANNEL_3_2);
+            double rps = count / (2 * encoder_resolution3 * speed_reduction_ratio3 * control_period);
+
+            double err = setpoint3 - rps;
+            double propotional = kp3 * err;
+            last_integral3 += ki3 * err * control_period;
+            double differential =  kd3 * (rps-rps_before3) / control_period;
+            double pid_duty = propotional + last_integral3 + differential;
+            pid_duty = (pid_duty > 1) ? 1.0 : pid_duty;
+            pid_duty = (pid_duty < -1) ? -1.0 : pid_duty;
+            rps_before3 = rps;
+            controlMotor(pid_duty*pwm_resolution, PWM_CHANNEL_3_1, PWM_CHANNEL_3_2);
+            output3 = pid_duty*pwm_resolution;
         }
         else if(encoder == &encoder4){
             input4 = *speed;
-            myPID4.Compute();
-            controlMotor(output4, PWM_CHANNEL_4_1, PWM_CHANNEL_4_2);
+            double rps = count / (2 * encoder_resolution4 * speed_reduction_ratio4 * control_period);
+
+            double err = setpoint4 - rps;
+            double propotional = kp4 * err;
+            last_integral4 += ki4 * err * control_period;
+            double differential =  kd4 * (rps-rps_before4) / control_period;
+            double pid_duty = propotional + last_integral4 + differential;
+            pid_duty = (pid_duty > 1) ? 1.0 : pid_duty;
+            pid_duty = (pid_duty < -1) ? -1.0 : pid_duty;
+            rps_before4 = rps;
+            controlMotor(pid_duty*pwm_resolution, PWM_CHANNEL_4_1, PWM_CHANNEL_4_2);
+            output4 = pid_duty*pwm_resolution;
         }
         
         vTaskDelay(1 / portTICK_PERIOD_MS);
@@ -130,10 +180,10 @@ void logEncoderSpeed(void *pvParameters) {
 void setup() {
     // Initialize encoders
     ESP32Encoder::useInternalWeakPullResistors = puType::up;
-    encoder1.attachFullQuad(DC1_1, DC1_2);
-    encoder2.attachFullQuad(DC2_1, DC2_2);
-    encoder3.attachFullQuad(DC3_1, DC3_2);
-    encoder4.attachFullQuad(DC4_1, DC4_2);
+    encoder1.attachSingleEdge(DC1_1, DC1_2);
+    encoder2.attachSingleEdge(DC2_1, DC2_2);
+    encoder3.attachSingleEdge(DC3_1, DC3_2);
+    encoder4.attachSingleEdge(DC4_1, DC4_2);
     // Initialize PWM channels
     ledcSetup(PWM_CHANNEL_1_1, 5000, 8);  // 5 kHz frequency, 8-bit resolution
     ledcSetup(PWM_CHANNEL_1_2, 5000, 8);
@@ -164,24 +214,9 @@ void setup() {
     ledcWrite(PWM_CHANNEL_4_1, 0);
     ledcWrite(PWM_CHANNEL_4_2, 0);
 
-    myPID1.SetMode(AUTOMATIC);  // the PID is turned on
-    myPID1.SetOutputLimits(-255, 255);
-    myPID1.SetSampleTime(TASK_FREQ_MS);
     setpoint1 = 0;
-
-    myPID2.SetMode(AUTOMATIC);  // the PID is turned on
-    myPID2.SetOutputLimits(-255, 255);
-    myPID1.SetSampleTime(TASK_FREQ_MS);
     setpoint2 = 0;
-
-    myPID3.SetMode(AUTOMATIC);  // the PID is turned on
-    myPID3.SetOutputLimits(-255, 255);
-    myPID1.SetSampleTime(TASK_FREQ_MS);
     setpoint3 = 0;
-
-    myPID4.SetMode(AUTOMATIC);  // the PID is turned on
-    myPID4.SetOutputLimits(-255, 255);
-    myPID1.SetSampleTime(TASK_FREQ_MS);
     setpoint4 = 0;
 
     Serial.begin(921600);
@@ -208,16 +243,15 @@ void loop() {
   // read kp, ki, kd from serial for motor 1
   if (Serial.available() > 0) {
     // setpoint1 = Serial.parseFloat();
-    kp4 = Serial.parseFloat();
-    ki4 = Serial.parseFloat();
-    kd4 = Serial.parseFloat();
-    myPID4.SetTunings(kp4, ki4, kd4);
+    kp1 = Serial.parseFloat();
+    ki1 = Serial.parseFloat();
+    kd1 = Serial.parseFloat();
   }
 
   // switch setpoint1 0 and 30 every 5 seconds
     if (millis() % 10000 < 5000) {
-        setpoint4 = 0;
+        setpoint1 = 0;
     } else {
-        setpoint4 = 30;
+        setpoint1 = 30;
     }
 }
