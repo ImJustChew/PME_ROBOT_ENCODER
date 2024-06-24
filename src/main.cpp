@@ -37,28 +37,42 @@
 #define PWM_CHANNEL_4_1 6
 #define PWM_CHANNEL_4_2 7
 
+
+enum MotorState {
+  STOP = 0,
+  FORWARD = 1,
+  BACKWARD = 2,
+  MOVE_LEFT = 3,
+  MOVE_RIGHT = 4,
+  TURN_LEFT = 5,
+  TURN_RIGHT = 6
+};
+
+MotorState motorState = STOP;
+
+
 // variables
 double control_period = 0.01;
 
 
 // speed of 255 is already max.
 
-volatile double input1, output1, setpoint1 = 0.02, kp1 = 0, ki1 = 0, kd1 = 0; 
+volatile double input1, output1, setpoint1 = 0, kp1 = 2, ki1 = 0, kd1 = 0; 
 volatile double last_integral1 = 0, rps_before1 = 0.0;  // MOTOR 1
 int encoder_resolution1 = 512;
 double speed_reduction_ratio1 = 1;
 
-volatile double input2, output2, setpoint2 = 0.02, kp2 = 0, ki2 = 0, kd2 = 0;
+volatile double input2, output2, setpoint2 = 0, kp2 = 2, ki2 = 0, kd2 = 0;
 volatile double last_integral2 = 0, rps_before2 = 0.0;  // MOTOR 2
 int encoder_resolution2 = 512;
 double speed_reduction_ratio2 = 1;
 
-volatile double input3, output3, setpoint3 = 0.02, kp3 = 0, ki3 = 0, kd3 = 0; 
+volatile double input3, output3, setpoint3 = 0, kp3 = 2, ki3 = 0, kd3 = 0; 
 volatile double last_integral3 = 0, rps_before3 = 0.0;  // MOTOR 3
 int encoder_resolution3 = 512;
 double speed_reduction_ratio3 = 1;
 
-volatile double input4, output4, setpoint4 = 0.02, kp4 = 0, ki4 = 0, kd4 = 0;
+volatile double input4, output4, setpoint4 = 0, kp4 = 2, ki4 = 0, kd4 = 0;
 volatile double last_integral4 = 0, rps_before4 = 0.0;  // MOTOR 4
 int encoder_resolution4 = 512;
 double speed_reduction_ratio4 = 1;
@@ -77,6 +91,59 @@ volatile double speed1 = 0;
 volatile double speed2 = 0;
 volatile double speed3 = 0;
 volatile double speed4 = 0;
+
+void setMotorState(MotorState state) {
+    motorState = state;
+    switch(state) {
+        case STOP:
+            setpoint1 = 0;
+            setpoint2 = 0;
+            setpoint3 = 0;
+            setpoint4 = 0;
+            break;
+        case FORWARD:
+            setpoint1 = 0.4;
+            setpoint2 = 0.4;
+            setpoint3 = 0.4;
+            setpoint4 = 0.4;
+            break;
+        case BACKWARD:
+            setpoint1 = -0.4;
+            setpoint2 = -0.4;
+            setpoint3 = -0.4;
+            setpoint4 = -0.4;
+            break;
+        case MOVE_LEFT:
+            setpoint1 = 0.4;
+            setpoint2 = -0.4;
+            setpoint3 = 0.4;
+            setpoint4 = -0.4;
+            break;
+        case MOVE_RIGHT:
+            setpoint1 = -0.4;
+            setpoint2 = 0.4;
+            setpoint3 = -0.4;
+            setpoint4 = 0.4;
+            break;
+        case TURN_LEFT:
+            setpoint1 = -0.4;
+            setpoint2 = 0.4;
+            setpoint3 = 0.4;
+            setpoint4 = -0.4;
+            break;
+        case TURN_RIGHT:
+            setpoint1 = 0.4;
+            setpoint2 = -0.4;
+            setpoint3 = -0.4;
+            setpoint4 = 0.4;
+            break;
+        default:
+            break;
+    }
+    Serial.print("Motor state: ");
+    Serial.println(state);
+}
+
 
 
 void controlMotor(int output, int pwmChannel1, int pwmChannel2) {
@@ -241,17 +308,40 @@ void setup() {
 
 void loop() {
   // read kp, ki, kd from serial for motor 1
-  if (Serial.available() > 0) {
+//   if (Serial.available() > 0) {
     // setpoint1 = Serial.parseFloat();
-    kp4 = Serial.parseFloat();
-    ki4 = Serial.parseFloat();
-    kd4 = Serial.parseFloat();
-  }
+    // kp4 = Serial.parseFloat();
+    // ki4 = Serial.parseFloat();
+    // kd4 = Serial.parseFloat();
+//   }
 
-  // switch setpoint1 0 and 30 every 5 seconds
-    if (millis() % 10000 < 5000) {
-        setpoint4 = 0;
-    } else {
-        setpoint4 = 0.4;
-    }
+// read motor state from serial
+    // if(Serial.available() > 0) {
+    //     motorState = (MotorState)Serial.parseInt();
+    //     setMotorState(motorState);
+    // }
+
+  // switch setpoint1 0 and 0.4 every 5 seconds
+    // if (millis() % 10000 < 5000) {
+    //     setpoint4 = 0;
+    // } else {
+    //     setpoint4 = 0.4;
+    // }
+
+    setMotorState(FORWARD);
+    delay(5000);
+    setMotorState(STOP);
+    delay(5000);
+    setMotorState(BACKWARD);
+    delay(5000);
+    setMotorState(STOP);
+    delay(5000);
+    setMotorState(MOVE_LEFT);
+    delay(5000);
+    setMotorState(STOP);
+    delay(5000);
+    setMotorState(MOVE_RIGHT);
+    delay(5000);
+    setMotorState(STOP);
+    delay(5000);
 }
